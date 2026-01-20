@@ -1,0 +1,44 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Playfair Display', serif;
+  --font-sans: 'Inter', sans-serif;
+
+  --color-primary: #2f4a38;
+  --color-background-light: #f3f0e9;
+  --color-background-dark: #1c1917;
+
+  --color-party-lib: #d71920;
+  --color-party-con: #003f72;
+  --color-party-ndp: #f37021;
+  --color-party-bloc: #33b2cc;
+  --color-party-green: #3d8e33;
+
+  --animate-fade-in: fadeIn 0.5s ease-out;
+  --animate-slide-up: slideUp 0.5s ease-out;
+
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes slideUp {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  body {
+    @apply font-sans text-stone-800 dark:text-stone-100 antialiased bg-background-light dark:bg-background-dark h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-white;
+  }
+}
