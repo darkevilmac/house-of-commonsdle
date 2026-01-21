@@ -12,7 +12,7 @@
     <template v-else>
       <img
         :src="currentMember.imagePath"
-        :alt="`Headshot of ${currentMember.firstName} ${currentMember.lastName}`"
+        alt="MP image"
         class="w-full h-full object-cover object-top"
         @error="handleImageError"
       />

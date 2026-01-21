@@ -69,15 +69,20 @@ export async function fetchMembers() {
   let allPoliticians: PoliticianAPI[] = [];
 
   try {
-    const response = await fetch(API_URL);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+    const response = await fetch(API_URL, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-        throw new Error(`Failed to fetch API: ${response.statusText}`);
+        throw new Error(`Failed to fetch API: ${response.status} ${response.statusText}`);
     }
     const json = await response.json() as { objects: PoliticianAPI[] };
     allPoliticians = json.objects;
   } catch (error) {
     console.error("Error fetching data:", error);
-    return;
+    throw error; // Re-throw to fail the build
   }
 
   console.log(`Found ${allPoliticians.length} members.`);
@@ -146,7 +151,12 @@ export async function fetchMembers() {
 
 async function downloadImage(url: string, path: string): Promise<boolean> {
   try {
-    const res = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout for images
+
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (!res.ok) return false;
     const buffer = await res.arrayBuffer();
     writeFileSync(path, Buffer.from(buffer));
@@ -157,5 +167,8 @@ async function downloadImage(url: string, path: string): Promise<boolean> {
 }
 
 if (import.meta.main) {
-  fetchMembers().catch(console.error);
+  fetchMembers().catch((err) => {
+    console.error("Fetch failed:", err);
+    process.exit(1);
+  });
 }
