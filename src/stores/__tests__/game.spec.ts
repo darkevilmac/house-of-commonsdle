@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useGameStore } from '../game'
 
-// Mock the members data
 vi.mock('../../data/members.json', () => ({
   default: [
     {
@@ -53,9 +52,8 @@ describe('Game Store', () => {
   it('handles correct guess', () => {
     const store = useGameStore()
     store.loadMembers()
-    
-    // Force specific member for testing
-    const targetMember = store.members[0]
+
+    const targetMember = store.members[0]!
     store.currentMember = targetMember
     
     store.submitGuess(targetMember.partyCode)
@@ -63,24 +61,23 @@ describe('Game Store', () => {
     expect(store.score).toBe(1)
     expect(store.attempts).toBe(1)
     expect(store.isCorrect).toBe(true)
-    expect(store.partyStats[targetMember.partyCode].correct).toBe(1)
+    expect(store.partyStats[targetMember.partyCode]!.correct).toBe(1)
   })
 
   it('handles incorrect guess', () => {
     const store = useGameStore()
     store.loadMembers()
     
-    const targetMember = store.members[0]
+    const targetMember = store.members[0]!
     store.currentMember = targetMember
-    
-    // Guess wrong party
+
     const wrongParty = targetMember.partyCode === 'LPC' ? 'CPC' : 'LPC'
     store.submitGuess(wrongParty)
     
     expect(store.score).toBe(0)
     expect(store.attempts).toBe(1)
     expect(store.isCorrect).toBe(false)
-    expect(store.partyStats[targetMember.partyCode].correct).toBe(0)
+    expect(store.partyStats[targetMember.partyCode]!.correct).toBe(0)
   })
 
   it('progresses to next round', () => {
@@ -97,10 +94,9 @@ describe('Game Store', () => {
   it('ends game when all members guessed', () => {
     const store = useGameStore()
     store.loadMembers()
-    
-    // Play through all members (2 in mock)
-    store.nextRound() // 2nd member
-    store.nextRound() // Should trigger game over
+
+    store.nextRound()
+    store.nextRound()
     
     expect(store.isGameOver).toBe(true)
     expect(store.currentMember).toBeNull()

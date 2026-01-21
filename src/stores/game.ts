@@ -26,8 +26,6 @@ export const useGameStore = defineStore('game', {
   }),
   actions: {
     loadMembers() {
-      // In a real app, might fetch here. We are loading from JSON.
-      // Initialize stats for known parties if empty
       if (Object.keys(this.partyStats).length === 0) {
         ;['LPC', 'CPC', 'NDP', 'BQ', 'GPC'].forEach((code) => {
           this.partyStats[code] = { attempts: 0, correct: 0 }
@@ -93,3 +91,12 @@ export const useGameStore = defineStore('game', {
     },
   },
 })
+
+if (import.meta.env.DEV) {
+  (window as any).endGame = () => {
+    const store = useGameStore()
+    store.history = [...store.members]
+    store.isGameOver = true
+    store.currentMember = null
+  }
+}
