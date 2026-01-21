@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useGameStore } from './stores/game'
+import { storeToRefs } from 'pinia'
 import ScoreBoard from './components/ScoreBoard.vue'
 import MemberCard from './components/MemberCard.vue'
 import PartySelector from './components/PartySelector.vue'
 import HowToPlayModal from './components/HowToPlayModal.vue'
 
 const store = useGameStore()
+const { feedbackMessage } = storeToRefs(store)
 const showHelp = ref(false)
 
 const closeHelp = () => {
@@ -73,6 +75,25 @@ onMounted(() => {
         <div
           class="absolute bottom-0 w-full z-40 bg-gradient-to-t from-background-light via-background-light/95 to-transparent dark:from-background-dark dark:via-background-dark/95 pt-12 pb-12 md:pb-14 px-4"
         >
+          <!-- Easter Egg Feedback -->
+          <transition
+            enter-active-class="transition duration-300 ease-out"
+            enter-from-class="transform translate-y-4 opacity-0"
+            enter-to-class="transform translate-y-0 opacity-100"
+            leave-active-class="transition duration-200 ease-in"
+            leave-from-class="transform translate-y-0 opacity-100"
+            leave-to-class="transform translate-y-4 opacity-0"
+          >
+            <div
+              v-if="feedbackMessage"
+              class="absolute -top-12 left-1/2 -translate-x-1/2 bg-white/90 dark:bg-stone-800/90 backdrop-blur-sm px-6 py-2 rounded-full border border-stone-200 dark:border-stone-700 shadow-lg z-50 whitespace-nowrap"
+            >
+              <span class="font-display font-bold text-lg text-stone-800 dark:text-white">
+                {{ feedbackMessage }}
+              </span>
+            </div>
+          </transition>
+
           <PartySelector />
         </div>
       </template>

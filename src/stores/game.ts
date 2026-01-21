@@ -24,6 +24,7 @@ export const useGameStore = defineStore('game', {
     queue: [] as Member[],
     partyStats: {} as Record<string, { attempts: number; correct: number }>,
     isGameOver: false,
+    feedbackMessage: null as string | null,
   }),
   actions: {
     loadMembers() {
@@ -85,6 +86,7 @@ export const useGameStore = defineStore('game', {
       
       this.isCorrect = null
       this.lastGuess = null
+      this.feedbackMessage = null
       
       this.fillQueue()
     },
@@ -103,12 +105,33 @@ export const useGameStore = defineStore('game', {
 
       this.partyStats[targetParty].attempts++
 
+      // Easter Egg Logic for Leaders
+      // Leaders identified:
+      // - CPC: Pierre Poilievre (Battle River—Crowfoot)
+      // - LPC: Mark Carney (Nepean)
+      // - NDP: Don Davies (Vancouver Kingsway)
+      // - BQ: Yves-François Blanchet (Beloeil—Chambly)
+      // - GPC: Elizabeth May (Saanich—Gulf Islands)
+      
+      const isLeader = 
+        (this.currentMember.firstName === 'Pierre' && this.currentMember.lastName === 'Poilievre' && this.currentMember.constituency === 'Battle River—Crowfoot') ||
+        (this.currentMember.firstName === 'Mark' && this.currentMember.lastName === 'Carney' && this.currentMember.constituency === 'Nepean') ||
+        (this.currentMember.firstName === 'Don' && this.currentMember.lastName === 'Davies' && this.currentMember.constituency === 'Vancouver Kingsway') ||
+        (this.currentMember.firstName === 'Yves-François' && this.currentMember.lastName === 'Blanchet' && this.currentMember.constituency === 'Beloeil—Chambly') ||
+        (this.currentMember.firstName === 'Elizabeth' && this.currentMember.lastName === 'May' && this.currentMember.constituency === 'Saanich—Gulf Islands')
+
       if (targetParty === partyCode) {
         this.score++
         this.isCorrect = true
         this.partyStats[targetParty].correct++
+        if (isLeader) {
+          this.feedbackMessage = "Well, yeah."
+        }
       } else {
         this.isCorrect = false
+        if (isLeader) {
+          this.feedbackMessage = "...Really?"
+        }
       }
 
       // Delay next round if we want to show result
