@@ -21,6 +21,7 @@ export const useGameStore = defineStore('game', {
     isCorrect: null as boolean | null, // null = waiting, true = correct, false = wrong
     lastGuess: null as string | null,
     history: [] as Member[],
+    queue: [] as Member[],
     partyStats: {} as Record<string, { attempts: number; correct: number }>,
     isGameOver: false,
   }),
@@ -31,27 +32,61 @@ export const useGameStore = defineStore('game', {
           this.partyStats[code] = { attempts: 0, correct: 0 }
         })
       }
+      this.queue = []
+      this.fillQueue()
       this.nextRound()
     },
+    preloadImage(url: string) {
+      const img = new Image()
+      img.src = url
+    },
+    fillQueue() {
+      const targetQueueSize = 5
+      while (this.queue.length < targetQueueSize) {
+        // Filter out members that are already in history OR in the queue
+        const usedIds = new Set([...this.history.map((m) => m.id), ...this.queue.map((m) => m.id)])
+        const available = this.members.filter((m) => !usedIds.has(m.id))
+
+        if (available.length === 0) break
+
+        const randomIndex = Math.floor(Math.random() * available.length)
+        const member = available[randomIndex]
+        if (!member) continue
+
+        this.queue.push(member)
+        this.preloadImage(member.imagePath)
+      }
+    },
     nextRound() {
-      // Filter out members that are already in history (already played)
-      const usedIds = new Set(this.history.map((m) => m.id))
-      const available = this.members.filter((m) => !usedIds.has(m.id))
-
-      if (available.length === 0) {
-        this.isGameOver = true
-        this.currentMember = null
-        return
+      if (this.queue.length === 0 && this.history.length === this.members.length) {
+         this.isGameOver = true
+         this.currentMember = null
+         return
       }
 
-      const randomIndex = Math.floor(Math.random() * available.length)
-      this.currentMember = available[randomIndex] || null
-      if (this.currentMember) {
+      // If queue is empty but strictly speaking there are members left (edge case), try to fill it
+      if (this.queue.length === 0) {
+          this.fillQueue()
+          if (this.queue.length === 0) {
+            this.isGameOver = true
+            this.currentMember = null
+            return
+          }
+      }
+
+      const nextMember = this.queue.shift()
+      if (nextMember) {
+        this.currentMember = nextMember
         this.history.push(this.currentMember)
+      } else {
+        // Should not happen if logic is correct
+        this.currentMember = null
       }
-
+      
       this.isCorrect = null
       this.lastGuess = null
+      
+      this.fillQueue()
     },
     submitGuess(partyCode: string) {
       if (!this.currentMember) return
