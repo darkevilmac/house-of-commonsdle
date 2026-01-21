@@ -8,13 +8,15 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "run-p type-check \"build-only {@}\" --",
+    "build": "run-s ensure-data build-parallel",
     "preview": "vite preview",
     "test:unit": "vitest",
     "build-only": "vite build",
+    "build-parallel": "run-p type-check \"build-only {@}\" --",
     "type-check": "vue-tsc --noEmit",
     "lint": "oxlint . --fix",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "ensure-data": "bun scripts/ensure-data.ts"
   },
   "dependencies": {
     "pinia": "^3.0.4",
