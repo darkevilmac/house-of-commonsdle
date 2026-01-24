@@ -6,10 +6,12 @@ import ScoreBoard from './components/ScoreBoard.vue'
 import MemberCard from './components/MemberCard.vue'
 import PartySelector from './components/PartySelector.vue'
 import HowToPlayModal from './components/HowToPlayModal.vue'
+import SettingsModal from './components/SettingsModal.vue'
 
 const store = useGameStore()
 const { feedbackMessage } = storeToRefs(store)
 const showHelp = ref(false)
+const showSettings = ref(false)
 
 const closeHelp = () => {
   showHelp.value = false
@@ -18,6 +20,14 @@ const closeHelp = () => {
 
 const openHelp = () => {
   showHelp.value = true
+}
+
+const closeSettings = () => {
+  showSettings.value = false
+}
+
+const openSettings = () => {
+  showSettings.value = true
 }
 
 onMounted(() => {
@@ -55,6 +65,15 @@ onMounted(() => {
         title="How to Play"
       >
         <span class="font-display font-bold text-lg">?</span>
+      </button>
+      
+      <!-- Settings Button -->
+      <button
+        @click="openSettings"
+        class="flex items-center justify-center w-10 h-10 bg-white/50 dark:bg-black/50 backdrop-blur-md rounded-full border border-white/20 dark:border-white/10 shadow-sm text-stone-600 dark:text-stone-300 hover:bg-white/80 dark:hover:bg-black/70 hover:scale-105 transition-all duration-200"
+        title="Settings"
+      >
+        <span class="material-symbols-outlined text-lg">settings</span>
       </button>
     </div>
 
@@ -149,6 +168,7 @@ onMounted(() => {
 
     <!-- Modals -->
     <HowToPlayModal v-if="showHelp" @close="closeHelp" />
+    <SettingsModal v-if="showSettings" @close="closeSettings" />
 
     <!-- Footer -->
     <footer

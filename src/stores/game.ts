@@ -25,9 +25,23 @@ export const useGameStore = defineStore('game', {
     partyStats: {} as Record<string, { attempts: number; correct: number }>,
     isGameOver: false,
     feedbackMessage: null as string | null,
+    settings: {
+      americanMode: false,
+      easyMode: false,
+    }
   }),
   actions: {
     loadMembers() {
+      // Load settings from local storage
+      const storedSettings = localStorage.getItem('gameSettings')
+      if (storedSettings) {
+        try {
+          this.settings = { ...this.settings, ...JSON.parse(storedSettings) }
+        } catch (e) {
+          console.error('Failed to load settings', e)
+        }
+      }
+
       if (Object.keys(this.partyStats).length === 0) {
         ;['LPC', 'CPC', 'NDP', 'BQ', 'GPC'].forEach((code) => {
           this.partyStats[code] = { attempts: 0, correct: 0 }
@@ -36,6 +50,10 @@ export const useGameStore = defineStore('game', {
       this.queue = []
       this.fillQueue()
       this.nextRound()
+    },
+    updateSettings(newSettings: Partial<{ americanMode: boolean; easyMode: boolean }>) {
+      this.settings = { ...this.settings, ...newSettings }
+      localStorage.setItem('gameSettings', JSON.stringify(this.settings))
     },
     preloadImage(url: string) {
       const img = new Image()
@@ -58,7 +76,7 @@ export const useGameStore = defineStore('game', {
         this.preloadImage(member.imagePath)
       }
     },
-    nextRound() {
+    async nextRound() {
       if (this.queue.length === 0 && this.history.length === this.members.length) {
          this.isGameOver = true
          this.currentMember = null
@@ -76,17 +94,28 @@ export const useGameStore = defineStore('game', {
       }
 
       const nextMember = this.queue.shift()
+      
+      // Clear current member to trigger loading state
+      this.currentMember = null
+      this.isCorrect = null
+      this.lastGuess = null
+      this.feedbackMessage = null
+
       if (nextMember) {
+        // Enforce image loading
+        await new Promise<void>((resolve) => {
+            const img = new Image()
+            img.onload = () => resolve()
+            img.onerror = () => resolve() // Resolve anyway to avoid hanging
+            img.src = nextMember.imagePath
+        })
+        
         this.currentMember = nextMember
         this.history.push(this.currentMember)
       } else {
         // Should not happen if logic is correct
         this.currentMember = null
       }
-      
-      this.isCorrect = null
-      this.lastGuess = null
-      this.feedbackMessage = null
       
       this.fillQueue()
     },
@@ -105,11 +134,11 @@ export const useGameStore = defineStore('game', {
 
       this.partyStats[targetParty].attempts++
 
-      // Easter Egg Logic for Leaders
+      // Easter Egg Logic forLeaders
       // Leaders identified:
       // - CPC: Pierre Poilievre (Battle River—Crowfoot)
-      // - LPC: Mark Carney (Nepean)
-      // - NDP: Don Davies (Vancouver Kingsway)
+      // - LPC: Mark Carney (Nepean) (Assuming hypothetical/future scenario or game logic)
+      // - NDP: Don Davies (Vancouver Kingsway) (Assuming hypothetical)
       // - BQ: Yves-François Blanchet (Beloeil—Chambly)
       // - GPC: Elizabeth May (Saanich—Gulf Islands)
       
@@ -120,7 +149,29 @@ export const useGameStore = defineStore('game', {
         (this.currentMember.firstName === 'Yves-François' && this.currentMember.lastName === 'Blanchet' && this.currentMember.constituency === 'Beloeil—Chambly') ||
         (this.currentMember.firstName === 'Elizabeth' && this.currentMember.lastName === 'May' && this.currentMember.constituency === 'Saanich—Gulf Islands')
 
-      if (targetParty === partyCode) {
+      let isGuessCorrect = false;
+
+      if (this.settings.americanMode) {
+          // American Mode Logic
+          const conservativeGroup = ['CPC'];
+          // In American mode, we are usually checking "Conservative" vs "Everyone Else" (Liberal/NDP/Green/Bloc)
+          // The button passed 'CPC' represents "Conservative"
+          // The button passed 'LPC' (or other) represents "Not Conservative" (Liberal+NDP+Green+Bloc)
+          
+          if (partyCode === 'CPC') {
+             // User guessed Conservative
+             isGuessCorrect = conservativeGroup.includes(targetParty);
+          } else {
+             // User guessed Not Conservative (The "Liberal" button in American mode acts as the catch-all)
+             isGuessCorrect = !conservativeGroup.includes(targetParty);
+          }
+      } else {
+          // Standard Mode Logic
+          isGuessCorrect = targetParty === partyCode;
+      }
+
+
+      if (isGuessCorrect) {
         this.score++
         this.isCorrect = true
         this.partyStats[targetParty].correct++
