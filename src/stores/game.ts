@@ -137,8 +137,8 @@ export const useGameStore = defineStore('game', {
       // Easter Egg Logic forLeaders
       // Leaders identified:
       // - CPC: Pierre Poilievre (Battle River—Crowfoot)
-      // - LPC: Mark Carney (Nepean) (Assuming hypothetical/future scenario or game logic)
-      // - NDP: Don Davies (Vancouver Kingsway) (Assuming hypothetical)
+      // - LPC: Mark Carney (Nepean)
+      // - NDP: Don Davies (Vancouver Kingsway)
       // - BQ: Yves-François Blanchet (Beloeil—Chambly)
       // - GPC: Elizabeth May (Saanich—Gulf Islands)
       
