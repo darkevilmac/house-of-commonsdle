@@ -95,20 +95,19 @@ export const useGameStore = defineStore('game', {
 
       const nextMember = this.queue.shift()
       
-      // Clear current member to trigger loading state
-      this.currentMember = null
-      this.isCorrect = null
-      this.lastGuess = null
-      this.feedbackMessage = null
-
       if (nextMember) {
-        // Enforce image loading
+        // Enforce image loading BEFORE clearing current member
+        // This prevents the "flash" of the loading spinner
         await new Promise<void>((resolve) => {
             const img = new Image()
             img.onload = () => resolve()
             img.onerror = () => resolve() // Resolve anyway to avoid hanging
             img.src = nextMember.imagePath
         })
+        
+        this.isCorrect = null
+        this.lastGuess = null
+        this.feedbackMessage = null
         
         this.currentMember = nextMember
         this.history.push(this.currentMember)
