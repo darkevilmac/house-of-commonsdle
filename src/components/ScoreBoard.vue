@@ -86,7 +86,7 @@
               >MPs Guessed</span
             >
             <span class="text-xs text-stone-500 dark:text-stone-400 font-mono">
-              {{ store.history.length }} / {{ store.members.length }}
+              {{ store.history.length }} / {{ store.totalMembers }}
             </span>
           </div>
           <div class="h-2 bg-stone-100 dark:bg-stone-700 rounded-full overflow-hidden w-full">
@@ -94,8 +94,8 @@
               class="h-full bg-primary dark:bg-green-500 rounded-full transition-all duration-500"
               :style="{
                 width:
-                  store.members.length > 0
-                    ? (store.history.length / store.members.length) * 100 + '%'
+                  store.totalMembers > 0
+                    ? (store.history.length / store.totalMembers) * 100 + '%'
                     : '0%',
               }"
             ></div>

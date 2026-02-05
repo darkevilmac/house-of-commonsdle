@@ -76,7 +76,7 @@ describe('Game Store', () => {
     await store.loadMembers()
     expect(store.members).toHaveLength(3)
     expect(store.currentMember).not.toBeNull()
-    expect(store.history).toHaveLength(1)
+    expect(store.history).toHaveLength(0)
     expect(store.partyStats['LPC']).toBeDefined()
   })
 
@@ -91,7 +91,11 @@ describe('Game Store', () => {
     expect(store.score).toBe(1)
     expect(store.attempts).toBe(1)
     expect(store.isCorrect).toBe(true)
+    expect(store.score).toBe(1)
+    expect(store.attempts).toBe(1)
+    expect(store.isCorrect).toBe(true)
     expect(store.partyStats[targetMember.partyCode]!.correct).toBe(1)
+    expect(store.history).toHaveLength(1)
   })
 
   it('handles incorrect guess', async () => {
@@ -106,7 +110,11 @@ describe('Game Store', () => {
     expect(store.score).toBe(0)
     expect(store.attempts).toBe(1)
     expect(store.isCorrect).toBe(false)
+    expect(store.score).toBe(0)
+    expect(store.attempts).toBe(1)
+    expect(store.isCorrect).toBe(false)
     expect(store.partyStats[targetMember.partyCode]!.correct).toBe(0)
+    expect(store.history).toHaveLength(1)
   })
 
   it('progresses to next round', async () => {
@@ -117,15 +125,39 @@ describe('Game Store', () => {
     await store.nextRound()
 
     expect(store.currentMember).not.toEqual(firstMember)
-    expect(store.history).toHaveLength(2)
+    // History length depends on when we check. If we just called nextRound directly without a guess,
+    // push to history doesn't happen in nextRound anymore.
+    // However, in the real game loop, submitGuess pushes to history BEFORE calling nextRound.
+    // So if we just call nextRound manually in test, history won't increase.
+    // Let's simulate a guess + nextRound flow which is more realistic or adjust expectation based on manual call.
+    
+    // If we just want to test nextRound basic functionality:
+    // It should have just changed the member. History stays same unless guess happened.
+    expect(store.history).toHaveLength(0) 
   })
 
   it('ends game when all members guessed', async () => {
     const store = useGameStore()
     await store.loadMembers()
 
+    // Simulate game flow properly
+    const guessAll = async () => {
+        while(store.currentMember) {
+            store.submitGuess(store.currentMember.partyCode)
+            // wait for nextRound which is called via setTimeout in real app, but we need to trigger it manually or mock timers
+            // Since submitGuess calls setTimeout, we can just call nextRound manually or wait. 
+            // Better to just manually call what pushes to history for this test setup or use a helper that simulates the flow.
+            // Actually, submitGuess doesn't await.
+            await store.nextRound()
+        }
+    }
+    
+    // Manually pushing to history to simulate the flow since we changed logic
+    store.history.push(store.currentMember!)
     await store.nextRound()
+    store.history.push(store.currentMember!)
     await store.nextRound()
+    store.history.push(store.currentMember!)
     await store.nextRound()
 
     expect(store.isGameOver).toBe(true)
@@ -140,7 +172,8 @@ describe('Game Store', () => {
     await store.resetGame()
     expect(store.score).toBe(0)
     expect(store.attempts).toBe(0)
-    expect(store.history).toHaveLength(1)
+    expect(store.attempts).toBe(0)
+    expect(store.history).toHaveLength(0)
     expect(store.isGameOver).toBe(false)
   })
 
@@ -185,6 +218,23 @@ describe('Game Store', () => {
 
       const uniqueInQueue = new Set(store.queue.map((m) => m.id))
       expect(uniqueInQueue.has('Member 1')).toBe(true)
+    })
+
+    it('correctly calculates totalMembers based on exclusions', async () => {
+      const store = useGameStore()
+      await store.loadMembers()
+
+      const initialTotal = store.totalMembers
+      expect(initialTotal).toBe(3)
+
+      store.addToExcludedList('Member 1')
+      expect(store.totalMembers).toBe(2)
+
+      store.addToExcludedList('Member 2')
+      expect(store.totalMembers).toBe(1)
+      
+      store.resetExcludedList()
+      expect(store.totalMembers).toBe(3)
     })
   })
 })

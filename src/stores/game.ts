@@ -24,6 +24,9 @@ export const useGameStore = defineStore('game', {
       excludedIds: [] as string[],
     },
   }),
+  getters: {
+    totalMembers: (state) => state.members.length - state.settings.excludedIds.length,
+  },
   actions: {
     async loadMembers() {
       const storedSettings = localStorage.getItem('gameSettings')
@@ -137,9 +140,7 @@ export const useGameStore = defineStore('game', {
 
         this.currentMember = nextMember
         this.imageReady = true // Image confirmed loaded, safe to display
-        this.history.push(this.currentMember)
       } else {
-        // Should not happen if logic is correct
         this.currentMember = null
       }
 
@@ -174,6 +175,8 @@ export const useGameStore = defineStore('game', {
         this.score++
         this.partyStats[targetParty].correct++
       }
+
+      this.history.push(this.currentMember)
 
       setTimeout(() => {
         this.nextRound()
