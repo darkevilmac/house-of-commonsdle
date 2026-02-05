@@ -2,13 +2,13 @@
   <div class="relative z-50">
     <button
       @click="showStats = !showStats"
-      class="bg-white/90 dark:bg-stone-800/90 backdrop-blur-md pl-6 pr-6 py-3 rounded-full shadow-lg border border-stone-200 dark:border-stone-700 flex items-center gap-4 text-sm font-semibold text-stone-800 dark:text-stone-200 tabular-nums min-w-[300px] justify-center hover:bg-white dark:hover:bg-stone-800 transition-colors"
+      class="relative overflow-hidden bg-white/90 dark:bg-stone-800/90 backdrop-blur-md pl-6 pr-6 py-3 rounded-full shadow-lg border border-stone-200 dark:border-stone-700 flex items-center gap-4 text-sm font-semibold text-stone-800 dark:text-stone-200 tabular-nums min-w-[300px] justify-center hover:bg-white dark:hover:bg-stone-800 transition-all"
     >
-      <span class="whitespace-nowrap">Correct: {{ store.score }}</span>
-      <span class="text-stone-300 dark:text-stone-600">|</span>
-      <span class="whitespace-nowrap">Total: {{ store.attempts }}</span>
-      <span class="text-stone-300 dark:text-stone-600">|</span>
-      <span class="text-primary dark:text-green-400 font-bold">{{ percentage }}%</span>
+      <span class="whitespace-nowrap relative z-10">Correct: {{ store.score }}</span>
+      <span class="text-stone-300 dark:text-stone-600 relative z-10">|</span>
+      <span class="whitespace-nowrap relative z-10">Total: {{ store.attempts }}</span>
+      <span class="text-stone-300 dark:text-stone-600 relative z-10">|</span>
+      <span class="text-primary dark:text-green-400 font-bold relative z-10">{{ percentage }}%</span>
       <svg
         xmlns="http://www.w3.org/2000/svg"
         class="h-4 w-4 text-stone-400 transition-transform duration-200 ml-1"
@@ -32,36 +32,73 @@
     >
       <div
         v-if="showStats"
-        class="absolute top-full mt-2 left-0 right-0 bg-white/95 dark:bg-stone-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-stone-200 dark:border-stone-700 p-4 max-h-[300px] overflow-y-auto"
+        class="absolute top-full mt-2 left-0 right-0 bg-white/95 dark:bg-stone-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-stone-200 dark:border-stone-700 p-4 max-h-[400px] overflow-y-auto"
       >
         <h3 class="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3 px-2">
           Accuracy by Party
         </h3>
-        <div class="space-y-2">
+        <div class="space-y-3 mb-4">
           <div
             v-for="(stats, party) in store.partyStats"
             :key="party"
             class="flex items-center justify-between px-2 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700/50"
           >
-            <div class="flex items-center gap-2">
-              <span
-                class="font-bold w-12"
-                :class="partyColors[party] || 'text-stone-800 dark:text-stone-200'"
-              >
-                {{ party }}
-              </span>
+            <span
+              class="font-bold w-12 text-sm"
+              :class="partyColors[party] || 'text-stone-800 dark:text-stone-200'"
+            >
+              {{ party }}
+            </span>
+
+            <div
+              class="flex-1 mx-3 h-2 bg-stone-100 dark:bg-stone-700 rounded-full overflow-hidden"
+            >
+              <div
+                class="h-full rounded-full transition-all duration-500"
+                :class="getAccuracyColor(stats.correct, stats.attempts).bg"
+                :style="{ width: calculatePercentage(stats.correct, stats.attempts) + '%' }"
+              ></div>
             </div>
-            <div class="flex items-center gap-4 text-xs">
-              <span class="text-stone-500 dark:text-stone-400"
+
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-stone-400 font-mono"
                 >{{ stats.correct }}/{{ stats.attempts }}</span
               >
               <span
-                class="font-bold w-10 text-right"
-                :class="getAccuracyColor(stats.correct, stats.attempts)"
+                class="font-mono text-sm font-bold w-10 text-right"
+                :class="getAccuracyColor(stats.correct, stats.attempts).text"
               >
                 {{ calculatePercentage(stats.correct, stats.attempts) }}%
               </span>
             </div>
+          </div>
+        </div>
+
+        <!-- Total Progress Section -->
+        <div class="border-t border-stone-200 dark:border-stone-700 my-3 mx-2"></div>
+
+        <h3 class="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3 px-2">
+          Total Progress
+        </h3>
+        <div class="px-2 pb-2">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm font-semibold text-stone-800 dark:text-stone-200"
+              >MPs Guessed</span
+            >
+            <span class="text-xs text-stone-500 dark:text-stone-400 font-mono">
+              {{ store.history.length }} / {{ store.members.length }}
+            </span>
+          </div>
+          <div class="h-2 bg-stone-100 dark:bg-stone-700 rounded-full overflow-hidden w-full">
+            <div
+              class="h-full bg-primary dark:bg-green-500 rounded-full transition-all duration-500"
+              :style="{
+                width:
+                  store.members.length > 0
+                    ? (store.history.length / store.members.length) * 100 + '%'
+                    : '0%',
+              }"
+            ></div>
           </div>
         </div>
       </div>
@@ -95,10 +132,12 @@ const calculatePercentage = (correct: number, total: number) => {
 }
 
 const getAccuracyColor = (correct: number, total: number) => {
-  if (total === 0) return 'text-stone-400'
+  if (total === 0) return { text: 'text-stone-400', bg: 'bg-stone-300 dark:bg-stone-600' }
   const pct = (correct / total) * 100
-  if (pct >= 80) return 'text-green-500'
-  if (pct >= 50) return 'text-yellow-500'
-  return 'text-red-500'
+  if (pct >= 80) return { text: 'text-green-500', bg: 'bg-green-500' }
+  if (pct >= 70) return { text: 'text-teal-500', bg: 'bg-teal-500' }
+  if (pct >= 60) return { text: 'text-yellow-500', bg: 'bg-yellow-500' }
+  if (pct >= 50) return { text: 'text-orange-500', bg: 'bg-orange-500' }
+  return { text: 'text-red-500', bg: 'bg-red-500' }
 }
 </script>

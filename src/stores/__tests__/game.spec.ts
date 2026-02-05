@@ -24,12 +24,42 @@ vi.mock('../../data/members.json', () => ({
       partyCode: 'CPC',
       imagePath: '/images/mps/member2.jpg',
     },
+    {
+      id: 'Member 3',
+      firstName: 'Member',
+      lastName: 'Three',
+      constituency: 'Riding 3',
+      province: 'Province 3',
+      party: 'NDP',
+      partyCode: 'NDP',
+      imagePath: '/images/mps/member3.jpg',
+    },
   ],
 }))
 
 describe('Game Store', () => {
   beforeEach(() => {
+    const localStorageMock = {
+      getItem: vi.fn(),
+      setItem: vi.fn(),
+      clear: vi.fn(),
+      length: 0,
+      key: vi.fn(),
+      removeItem: vi.fn(),
+    }
+    global.localStorage = localStorageMock as any
+
+    global.Image = class {
+      onload: () => void = () => {}
+      onerror: () => void = () => {}
+      src: string = ''
+      constructor() {
+        setTimeout(() => this.onload(), 0) // Simulate fast load
+      }
+    } as any
+
     setActivePinia(createPinia())
+    localStorage.clear()
   })
 
   it('initializes with default state', () => {
@@ -38,80 +68,123 @@ describe('Game Store', () => {
     expect(store.attempts).toBe(0)
     expect(store.history).toHaveLength(0)
     expect(store.isGameOver).toBe(false)
+    expect(store.settings.excludedIds).toEqual([])
   })
 
-  it('loads members and starts game', () => {
+  it('loads members and starts game', async () => {
     const store = useGameStore()
-    store.loadMembers()
-    expect(store.members).toHaveLength(2)
+    await store.loadMembers()
+    expect(store.members).toHaveLength(3)
     expect(store.currentMember).not.toBeNull()
     expect(store.history).toHaveLength(1)
     expect(store.partyStats['LPC']).toBeDefined()
   })
 
-  it('handles correct guess', () => {
+  it('handles correct guess', async () => {
     const store = useGameStore()
-    store.loadMembers()
+    await store.loadMembers()
 
-    const targetMember = store.members[0]!
-    store.currentMember = targetMember
-    
+    const targetMember = store.members.find((m) => m.id === store.currentMember?.id)!
+
     store.submitGuess(targetMember.partyCode)
-    
+
     expect(store.score).toBe(1)
     expect(store.attempts).toBe(1)
     expect(store.isCorrect).toBe(true)
     expect(store.partyStats[targetMember.partyCode]!.correct).toBe(1)
   })
 
-  it('handles incorrect guess', () => {
+  it('handles incorrect guess', async () => {
     const store = useGameStore()
-    store.loadMembers()
-    
-    const targetMember = store.members[0]!
-    store.currentMember = targetMember
+    await store.loadMembers()
+
+    const targetMember = store.members.find((m) => m.id === store.currentMember?.id)!
 
     const wrongParty = targetMember.partyCode === 'LPC' ? 'CPC' : 'LPC'
     store.submitGuess(wrongParty)
-    
+
     expect(store.score).toBe(0)
     expect(store.attempts).toBe(1)
     expect(store.isCorrect).toBe(false)
     expect(store.partyStats[targetMember.partyCode]!.correct).toBe(0)
   })
 
-  it('progresses to next round', () => {
+  it('progresses to next round', async () => {
     const store = useGameStore()
-    store.loadMembers()
-    
+    await store.loadMembers()
+
     const firstMember = store.currentMember
-    store.nextRound()
-    
+    await store.nextRound()
+
     expect(store.currentMember).not.toEqual(firstMember)
     expect(store.history).toHaveLength(2)
   })
 
-  it('ends game when all members guessed', () => {
+  it('ends game when all members guessed', async () => {
     const store = useGameStore()
-    store.loadMembers()
+    await store.loadMembers()
 
-    store.nextRound()
-    store.nextRound()
-    
+    await store.nextRound()
+    await store.nextRound()
+    await store.nextRound()
+
     expect(store.isGameOver).toBe(true)
     expect(store.currentMember).toBeNull()
   })
 
-  it('resets game state', () => {
+  it('resets game state', async () => {
     const store = useGameStore()
-    store.loadMembers()
+    await store.loadMembers()
     store.submitGuess('LPC')
-    
-    store.resetGame()
-    
+
+    await store.resetGame()
     expect(store.score).toBe(0)
     expect(store.attempts).toBe(0)
-    expect(store.history).toHaveLength(1) // resetGame calls loadMembers which starts first round
+    expect(store.history).toHaveLength(1)
     expect(store.isGameOver).toBe(false)
+  })
+
+  describe('Blacklist/Exclusion Logic', () => {
+    it('excludes members from queue when added to blacklist', async () => {
+      const store = useGameStore()
+      await store.loadMembers()
+
+      const memberToExclude = store.members[1]
+      if (!memberToExclude) throw new Error('Member 2 not found')
+
+      store.addToExcludedList(memberToExclude.id)
+
+      expect(store.settings.excludedIds).toContain(memberToExclude.id)
+      expect(store.queue.find((m) => m.id === memberToExclude.id)).toBeUndefined()
+    })
+
+    it('does not select excluded members when filling queue', async () => {
+      const store = useGameStore()
+
+      store.settings.excludedIds = ['Member 3']
+      await store.loadMembers()
+
+      const allQueuedAndCurrent = [store.currentMember, ...store.queue]
+      const member3InGame = allQueuedAndCurrent.find((m) => m?.id === 'Member 3')
+
+      expect(member3InGame).toBeUndefined()
+      expect(store.members.length).toBe(3)
+    })
+
+    it('resets exclusion list and makes members available again', async () => {
+      const store = useGameStore()
+      store.addToExcludedList('Member 1')
+      expect(store.settings.excludedIds).toContain('Member 1')
+
+      store.resetExcludedList()
+      expect(store.settings.excludedIds).toHaveLength(0)
+
+      store.history = []
+      store.queue = []
+      store.fillQueue()
+
+      const uniqueInQueue = new Set(store.queue.map((m) => m.id))
+      expect(uniqueInQueue.has('Member 1')).toBe(true)
+    })
   })
 })

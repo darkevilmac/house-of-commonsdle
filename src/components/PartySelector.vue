@@ -1,5 +1,5 @@
 <template>
-  <div 
+  <div
     class="max-w-6xl mx-auto grid gap-3 md:gap-6 h-28 md:h-36 w-full transition-all duration-300"
     :class="parties.length === 2 ? 'grid-cols-2' : 'grid-cols-5'"
   >
@@ -13,22 +13,22 @@
     >
       <div class="w-full flex-grow flex items-center justify-center p-2 mb-1">
         <template v-if="party.logos">
-            <div class="flex items-center justify-center gap-2 h-16 w-full pointer-events-none px-2">
-                 <img
-                    v-for="(logo, idx) in party.logos"
-                    :key="idx"
-                    :src="logo"
-                    class="h-8 md:h-10 w-auto max-w-[2.5rem] md:max-w-[3.5rem] object-contain drop-shadow-sm"
-                />
-            </div>
+          <div class="flex items-center justify-center gap-2 h-16 w-full pointer-events-none px-2">
+            <img
+              v-for="(logo, idx) in party.logos"
+              :key="idx"
+              :src="logo"
+              class="h-8 md:h-10 w-auto max-w-[2.5rem] md:max-w-[3.5rem] object-contain drop-shadow-sm"
+            />
+          </div>
         </template>
         <template v-else>
-            <img
+          <img
             :src="party.logo"
             :alt="party.name"
             class="w-10 h-10 md:w-16 md:h-16 object-contain drop-shadow-sm transition-transform duration-300"
             :class="party.logoClass"
-            />
+          />
         </template>
       </div>
 
@@ -108,30 +108,30 @@ const allParties = [
 const { settings } = storeToRefs(store)
 
 const parties = computed(() => {
-    if (settings.value.americanMode) {
-        return [
-             {
-                code: 'CPC',
-                name: 'Conservative',
-                shortName: 'CPC',
-                logo: cpcLogo,
-                bgClass: 'bg-gradient-to-br from-[#D0E0F0] to-[#B0CDE0]',
-                textClass: 'text-[#003F72]',
-                logoClass: 'scale-95 translate-y-[6px]',
-            },
-            {
-                code: 'ALL', // Special code for the "Everyone Else" button
-                name: 'Lib + NDP + Green + Bloc',
-                shortName: 'Left Wing',
-                logo: '', // Not used when logos is present
-                logos: [lpcLogo, ndpLogo, bqLogo, gpcLogo],
-                bgClass: 'bg-gradient-to-br from-[#FAD4D4] to-[#F5A9A9]',
-                textClass: 'text-[#D71920]',
-                logoClass: 'scale-90 translate-y-1',
-            }
-        ]
-    }
-    return allParties
+  if (settings.value.americanMode) {
+    return [
+      {
+        code: 'CPC',
+        name: 'Conservative',
+        shortName: 'CPC',
+        logo: cpcLogo,
+        bgClass: 'bg-gradient-to-br from-[#D0E0F0] to-[#B0CDE0]',
+        textClass: 'text-[#003F72]',
+        logoClass: 'scale-95 translate-y-[6px]',
+      },
+      {
+        code: 'ALL', // Special code for the "Everyone Else" button
+        name: 'Lib + NDP + Green + Bloc',
+        shortName: 'Left Wing',
+        logo: '', // Not used when logos is present
+        logos: [lpcLogo, ndpLogo, bqLogo, gpcLogo],
+        bgClass: 'bg-gradient-to-br from-[#FAD4D4] to-[#F5A9A9]',
+        textClass: 'text-[#D71920]',
+        logoClass: 'scale-90 translate-y-1',
+      },
+    ]
+  }
+  return allParties
 })
 
 const submitGuess = (code: string) => {
@@ -147,14 +147,15 @@ const getButtonState = (partyCode: string) => {
   let isTarget = false
 
   if (settings.value.americanMode) {
-      const isMemberConservative = currentMember.value?.partyCode === 'CPC'
-      if (partyCode === 'CPC') {
-          isTarget = isMemberConservative
-      } else { // partyCode === 'ALL'
-          isTarget = !isMemberConservative
-      }
+    const isMemberConservative = currentMember.value?.partyCode === 'CPC'
+    if (partyCode === 'CPC') {
+      isTarget = isMemberConservative
+    } else {
+      // partyCode === 'ALL'
+      isTarget = !isMemberConservative
+    }
   } else {
-      isTarget = currentMember.value?.partyCode === partyCode
+    isTarget = currentMember.value?.partyCode === partyCode
   }
 
   if (isTarget) {

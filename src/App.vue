@@ -66,7 +66,7 @@ onMounted(() => {
       >
         <span class="font-display font-bold text-lg">?</span>
       </button>
-      
+
       <!-- Settings Button -->
       <button
         @click="openSettings"

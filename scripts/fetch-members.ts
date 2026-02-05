@@ -1,5 +1,6 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
+import { createHash } from 'crypto';
 import { fileURLToPath } from 'url';
 import cliProgress from 'cli-progress';
 
@@ -103,8 +104,12 @@ export async function fetchMembers() {
     const partyCode = PARTY_MAPPING[partyName] || "IND";
 
     const remoteImageUrl = `https://api.openparliament.ca${pol.image}`;
-
-    const filename = pol.image.split('/').pop() || `${firstName}_${lastName}.jpg`;
+    
+    // Generate a stable obscured ID by hashing the unique API URL using Node's crypto
+    const imageId = createHash('sha256').update(pol.url).digest('hex').substring(0, 16);
+    const extension = pol.image.split('.').pop() || 'jpg';
+    const filename = `${imageId}.${extension}`;
+    
     const localImagePath = `images/mps/${filename}`;
     const fullLocalPath = join(IMAGE_DIR, filename);
 

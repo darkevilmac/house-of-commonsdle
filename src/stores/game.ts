@@ -1,21 +1,14 @@
 import { defineStore } from 'pinia'
 import membersData from '../data/members.json'
-
-interface Member {
-  id: string
-  firstName: string
-  lastName: string
-  constituency: string
-  province: string
-  party: string
-  partyCode: string
-  imagePath: string
-}
+import type { Member } from '../types/member'
+import { preloadImage } from '../utils/imageLoader'
+import { isLeader, evaluateGuess, getFeedbackMessage } from '../utils/gameLogic'
 
 export const useGameStore = defineStore('game', {
   state: () => ({
     members: membersData as Member[],
     currentMember: null as Member | null,
+    imageReady: false, // New: tracks if current member's image is loaded
     score: 0,
     attempts: 0,
     isCorrect: null as boolean | null, // null = waiting, true = correct, false = wrong
@@ -28,15 +21,23 @@ export const useGameStore = defineStore('game', {
     settings: {
       americanMode: false,
       easyMode: false,
-    }
+      excludedIds: [] as string[],
+    },
   }),
   actions: {
-    loadMembers() {
-      // Load settings from local storage
+    async loadMembers() {
       const storedSettings = localStorage.getItem('gameSettings')
       if (storedSettings) {
         try {
-          this.settings = { ...this.settings, ...JSON.parse(storedSettings) }
+          const parsed = JSON.parse(storedSettings)
+          this.settings = {
+            ...this.settings,
+            ...parsed,
+            // Ensure array exists if loading from old settings
+            excludedIds: Array.isArray(parsed.excludedIds)
+              ? parsed.excludedIds
+              : this.settings.excludedIds,
+          }
         } catch (e) {
           console.error('Failed to load settings', e)
         }
@@ -48,22 +49,42 @@ export const useGameStore = defineStore('game', {
         })
       }
       this.queue = []
-      this.fillQueue()
-      this.nextRound()
+      await this.fillQueue()
+      await this.nextRound()
     },
-    updateSettings(newSettings: Partial<{ americanMode: boolean; easyMode: boolean }>) {
+    updateSettings(
+      newSettings: Partial<{ americanMode: boolean; easyMode: boolean; excludedIds: string[] }>,
+    ) {
       this.settings = { ...this.settings, ...newSettings }
       localStorage.setItem('gameSettings', JSON.stringify(this.settings))
     },
-    preloadImage(url: string) {
-      const img = new Image()
-      img.src = url
+    addToExcludedList(memberId: string) {
+      if (!this.settings.excludedIds.includes(memberId)) {
+        const newExcluded = [...this.settings.excludedIds, memberId]
+        this.updateSettings({ excludedIds: newExcluded })
+
+        this.queue = this.queue.filter((m) => m.id !== memberId)
+        this.fillQueue()
+      }
     },
-    fillQueue() {
-      const targetQueueSize = 5
+    resetExcludedList() {
+      this.updateSettings({ excludedIds: [] })
+      this.fillQueue()
+    },
+    async fillQueue(targetQueueSize = 5) {
+      const preloadPromises: Promise<void>[] = []
+
       while (this.queue.length < targetQueueSize) {
-        // Filter out members that are already in history OR in the queue
-        const usedIds = new Set([...this.history.map((m) => m.id), ...this.queue.map((m) => m.id)])
+        // Filter out members that are already in history OR in the queue OR excluded OR current member
+        const usedIds = new Set([
+          ...this.history.map((m) => m.id),
+          ...this.queue.map((m) => m.id),
+          ...this.settings.excludedIds,
+        ])
+        if (this.currentMember) {
+          usedIds.add(this.currentMember.id)
+        }
+
         const available = this.members.filter((m) => !usedIds.has(m.id))
 
         if (available.length === 0) break
@@ -73,49 +94,56 @@ export const useGameStore = defineStore('game', {
         if (!member) continue
 
         this.queue.push(member)
-        this.preloadImage(member.imagePath)
+        // Start preloading but don't await - collect promises
+        preloadPromises.push(preloadImage(member.imagePath))
+      }
+
+      // Wait for first image (next in queue) to be ready, others load in background
+      if (preloadPromises.length > 0) {
+        await preloadPromises[0]
       }
     },
     async nextRound() {
       if (this.queue.length === 0 && this.history.length === this.members.length) {
-         this.isGameOver = true
-         this.currentMember = null
-         return
+        this.isGameOver = true
+        this.currentMember = null
+        this.imageReady = false
+        return
       }
+
+      // Signal that we're transitioning - image not ready yet
+      this.imageReady = false
 
       // If queue is empty but strictly speaking there are members left (edge case), try to fill it
       if (this.queue.length === 0) {
-          this.fillQueue()
-          if (this.queue.length === 0) {
-            this.isGameOver = true
-            this.currentMember = null
-            return
-          }
+        await this.fillQueue()
+        if (this.queue.length === 0) {
+          this.isGameOver = true
+          this.currentMember = null
+          return
+        }
       }
 
       const nextMember = this.queue.shift()
-      
+
       if (nextMember) {
-        // Enforce image loading BEFORE clearing current member
-        // This prevents the "flash" of the loading spinner
-        await new Promise<void>((resolve) => {
-            const img = new Image()
-            img.onload = () => resolve()
-            img.onerror = () => resolve() // Resolve anyway to avoid hanging
-            img.src = nextMember.imagePath
-        })
-        
+        // Await the image before displaying - it should already be cached from fillQueue
+        // but we ensure it's ready here
+        await preloadImage(nextMember.imagePath)
+
         this.isCorrect = null
         this.lastGuess = null
         this.feedbackMessage = null
-        
+
         this.currentMember = nextMember
+        this.imageReady = true // Image confirmed loaded, safe to display
         this.history.push(this.currentMember)
       } else {
         // Should not happen if logic is correct
         this.currentMember = null
       }
-      
+
+      // Fill queue in background (don't await - fire and forget for next members)
       this.fillQueue()
     },
     submitGuess(partyCode: string) {
@@ -133,75 +161,37 @@ export const useGameStore = defineStore('game', {
 
       this.partyStats[targetParty].attempts++
 
-      // Easter Egg Logic forLeaders
-      // Leaders identified:
-      // - CPC: Pierre Poilievre (Battle River—Crowfoot)
-      // - LPC: Mark Carney (Nepean)
-      // - NDP: Don Davies (Vancouver Kingsway)
-      // - BQ: Yves-François Blanchet (Beloeil—Chambly)
-      // - GPC: Elizabeth May (Saanich—Gulf Islands)
-      
-      const isLeader = 
-        (this.currentMember.firstName === 'Pierre' && this.currentMember.lastName === 'Poilievre' && this.currentMember.constituency === 'Battle River—Crowfoot') ||
-        (this.currentMember.firstName === 'Mark' && this.currentMember.lastName === 'Carney' && this.currentMember.constituency === 'Nepean') ||
-        (this.currentMember.firstName === 'Don' && this.currentMember.lastName === 'Davies' && this.currentMember.constituency === 'Vancouver Kingsway') ||
-        (this.currentMember.firstName === 'Yves-François' && this.currentMember.lastName === 'Blanchet' && this.currentMember.constituency === 'Beloeil—Chambly') ||
-        (this.currentMember.firstName === 'Elizabeth' && this.currentMember.lastName === 'May' && this.currentMember.constituency === 'Saanich—Gulf Islands')
+      // IMMEDIATE FETCH: Fill queue to 6 to start preloading the next member immediately
+      this.fillQueue(6)
 
-      let isGuessCorrect = false;
+      const isLeaderMember = isLeader(this.currentMember)
+      const isGuessCorrect = evaluateGuess(partyCode, targetParty, this.settings.americanMode)
 
-      if (this.settings.americanMode) {
-          // American Mode Logic
-          const conservativeGroup = ['CPC'];
-          // In American mode, we are usually checking "Conservative" vs "Everyone Else" (Liberal/NDP/Green/Bloc)
-          // The button passed 'CPC' represents "Conservative"
-          // The button passed 'LPC' (or other) represents "Not Conservative" (Liberal+NDP+Green+Bloc)
-          
-          if (partyCode === 'CPC') {
-             // User guessed Conservative
-             isGuessCorrect = conservativeGroup.includes(targetParty);
-          } else {
-             // User guessed Not Conservative (The "Liberal" button in American mode acts as the catch-all)
-             isGuessCorrect = !conservativeGroup.includes(targetParty);
-          }
-      } else {
-          // Standard Mode Logic
-          isGuessCorrect = targetParty === partyCode;
-      }
-
+      this.isCorrect = isGuessCorrect
+      this.feedbackMessage = getFeedbackMessage(isGuessCorrect, isLeaderMember)
 
       if (isGuessCorrect) {
         this.score++
-        this.isCorrect = true
         this.partyStats[targetParty].correct++
-        if (isLeader) {
-          this.feedbackMessage = "Well, yeah."
-        }
-      } else {
-        this.isCorrect = false
-        if (isLeader) {
-          this.feedbackMessage = "...Really?"
-        }
       }
 
-      // Delay next round if we want to show result
       setTimeout(() => {
         this.nextRound()
       }, 1500)
     },
-    resetGame() {
+    async resetGame() {
       this.score = 0
       this.attempts = 0
       this.history = []
       this.partyStats = {}
       this.isGameOver = false
-      this.loadMembers()
+      await this.loadMembers()
     },
   },
 })
 
 if (import.meta.env.DEV) {
-  (window as any).endGame = () => {
+  ;(window as any).endGame = () => {
     const store = useGameStore()
     store.history = [...store.members]
     store.isGameOver = true
