@@ -95,25 +95,27 @@ export async function fetchMembers() {
   bar.start(allPoliticians.length, 0);
 
   for (const pol of allPoliticians) {
+    if (!pol.name) continue;
     const fullName = pol.name;
     const nameParts = fullName.split(' ');
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || ''; // Join the rest
 
-    const partyName = pol.current_party.short_name.en;
+    const partyName = pol.current_party?.short_name?.en || 'Independent';
     const partyCode = PARTY_MAPPING[partyName] || "IND";
 
-    const remoteImageUrl = `https://api.openparliament.ca${pol.image}`;
+    const imagePath = pol.image || '';
+    const remoteImageUrl = imagePath ? `https://api.openparliament.ca${imagePath}` : '';
     
     // Generate a stable obscured ID by hashing the unique API URL using Node's crypto
     const imageId = createHash('sha256').update(pol.url).digest('hex').substring(0, 16);
-    const extension = pol.image.split('.').pop() || 'jpg';
+    const extension = imagePath ? (imagePath.split('.').pop() || 'jpg') : 'jpg';
     const filename = `${imageId}.${extension}`;
     
     const localImagePath = `images/mps/${filename}`;
     const fullLocalPath = join(IMAGE_DIR, filename);
 
-    if (!existsSync(fullLocalPath)) {
+    if (remoteImageUrl && !existsSync(fullLocalPath)) {
         // Check if known failure
         if (!knownFailures.includes(remoteImageUrl)) {
             const success = await downloadImage(remoteImageUrl, fullLocalPath);
@@ -130,8 +132,8 @@ export async function fetchMembers() {
       id: fullName, // Use Name as ID for now or a slug
       firstName: firstName,
       lastName: lastName,
-      constituency: pol.current_riding.name.en,
-      province: pol.current_riding.province,
+      constituency: pol.current_riding?.name?.en || 'Unknown',
+      province: pol.current_riding?.province || 'Unknown',
       party: partyName,
       partyCode: partyCode,
       imagePath: localImagePath
